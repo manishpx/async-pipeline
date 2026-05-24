@@ -1,2 +1,1 @@
-# async-pipeline
-AWS based asynchronous file processing
+# CSV Processing Platform
