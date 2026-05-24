@@ -105,7 +105,7 @@ curl -X POST https://<api-endpoint>/uploads \
 
 ```bash
 # Get the API base URL
-API=$(terraform output -raw api_endpoint)
+API=$(terraform output -api_endpoint)
 
 # Request a presigned upload URL
 RESP=$(curl -s -X POST "$API/uploads" \
@@ -228,22 +228,6 @@ Each container gets these at runtime:
 
 ---
 
-## Before you go to production
-
-A few things are deliberately left loose for dev. Don't forget to flip these:
-
-- [ ] `force_destroy = false` on all S3 buckets (`main.tf`, `dr.tf`) — right now `terraform destroy` will delete everything in them without warning
-- [ ] `skip_final_snapshot = false` on RDS (`rds.tf`)
-- [ ] `deletion_protection = true` on RDS (`rds.tf`)
-- [ ] Lock down `allow_origins = ["*"]` on API Gateway and S3 CORS to your actual domain
-- [ ] Add authentication to the API — there's none right now. Cognito or a Lambda authorizer, either works
-- [ ] Add WAF to API Gateway
-- [ ] Add a manual approval step in the CodeBuild pipeline so someone reviews the plan before it applies to prod
-- [ ] Replace `REPLACE_ME` in the enrich API secret with the real key
-- [ ] Pin `image_tag` to a specific version rather than `latest`
-- [ ] Check with legal on the enrichment vendor — if they're US-based you need a DPA in place before PII flows through enrich
-
----
 
 ## Tearing it down
 
