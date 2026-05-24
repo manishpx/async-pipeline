@@ -101,7 +101,8 @@ curl -X POST https://<api-endpoint>/uploads \
   -d '{"filename": "customers.csv", "contentType": "text/csv"}'
 ```
 
-Smoke test
+### Smoke test
+
 API=$(terraform output -raw api_endpoint)
 
 # Get a presigned URL
