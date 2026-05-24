@@ -181,7 +181,7 @@ curl -s "$API/jobs/$JOB" | jq
 async-pipeline/
 ├── HLD.md                          # High level design document
 ├── README.md                       # This file
-├── ArchitectureDiagram.pdf         # Architecture diagram (draw.io export)
+├── ArchitectureDiagram.pdf         # Architecture diagram
 ├── resource relationship.png       # Resource relationship diagram
 │
 └── infra setup code/               # All Terraform and Lambda source
