@@ -47,11 +47,12 @@ You'll need:
 
 ## Getting started
 
-### 1. Clone and init
+### 1. Clone the repo and initialise Terraform
 
 ```bash
 git clone <your-repo>
 cd <your-repo>
+cd "infra setup code"
 terraform init
 ```
 
@@ -177,24 +178,31 @@ curl -s "$API/jobs/$JOB" | jq
 ## Folder structure
 
 ```
-cd "infra setup code"
-.
-├── main.tf
-├── api.tf
-├── ecs.tf
-├── stepfunctions.tf
-├── eventbridge.tf
-├── iam.tf
-├── network.tf
-├── rds.tf
-├── dr.tf
-├── variables.tf
-├── outputs.tf
-├── versions.tf
-└── lambda/
-    ├── request_upload.py
-    └── get_status.py
+async-pipeline/
+├── HLD.md                          # High level design document
+├── README.md                       # This file
+├── ArchitectureDiagram.pdf         # Architecture diagram (draw.io export)
+├── resource relationship.png       # Resource relationship diagram
+│
+└── infra setup code/               # All Terraform and Lambda source
+    ├── main.tf                     # KMS, S3, DynamoDB, SNS, Secrets Manager
+    ├── api.tf                      # API Gateway + Lambda functions
+    ├── ecs.tf                      # ECS cluster + Fargate task definitions
+    ├── stepfunctions.tf            # Step Functions state machine
+    ├── eventbridge.tf              # S3 upload trigger rule
+    ├── iam.tf                      # All IAM roles and policies
+    ├── network.tf                  # VPC, subnets, NAT, VPC endpoints
+    ├── rds.tf                      # RDS Postgres Multi-AZ
+    ├── dr.tf                       # Frankfurt DR bucket + replication
+    ├── variables.tf                # Input variables
+    ├── outputs.tf                  # Stack outputs
+    ├── versions.tf                 # Provider version constraints
+    └── lambda/
+        ├── request_upload.py       # Generates presigned S3 URL + creates DynamoDB job record
+        └── get_status.py           # Reads job status from DynamoDB
 ```
+
+> Note: The Terraform files live inside `infra setup code/` — the folder name has spaces so remember to quote it: `cd "infra setup code"`
 
 ---
 
@@ -229,7 +237,6 @@ Each container gets these at runtime:
 | `DB_PASSWORD` | Secrets Manager — load task only |
 
 ---
-
 
 ## Tearing it down
 
