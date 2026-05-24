@@ -101,11 +101,28 @@ curl -X POST https://<api-endpoint>/uploads \
   -d '{"filename": "customers.csv", "contentType": "text/csv"}'
 ```
 
-### Check job status
+Smoke test
+API=$(terraform output -raw api_endpoint)
 
-```bash
-curl https://<api-endpoint>/jobs/<jobId>
-```
+# Get a presigned URL
+RESP=$(curl -s -X POST "$API/uploads" \
+  -H 'content-type: application/json' \
+  -d '{"filename":"test.csv"}')
+echo "$RESP" | jq
+
+# Upload a small file
+URL=$(echo "$RESP" | jq -r .uploadUrl)
+JOB=$(echo "$RESP" | jq -r .jobId)
+curl -X PUT --upload-file ./test.csv \
+  -H "x-amz-server-side-encryption: aws:kms" "$URL"
+
+# Watch it run
+aws stepfunctions list-executions \
+  --state-machine-arn $(terraform output -raw state_machine_arn) \
+  --region eu-north-1 --max-items 5
+
+# Check status
+curl -s "$API/jobs/$JOB" | jq
 
 ---
 
