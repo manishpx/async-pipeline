@@ -1,7 +1,5 @@
 # High Level Design — CSV Processing Platform
 **Version:** 1.0  
-**Date:** 2026-05-22 
-**Author:** Manish Pandey 
 
 ---
 
