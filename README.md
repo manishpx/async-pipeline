@@ -1,5 +1,4 @@
 # CSV Processing Platform
-# CSV Processing Pipeline
 
 Terraform for a CSV upload and processing pipeline running in `eu-north-1` (Stockholm). Files go in via the browser, get scrubbed of PII, enriched through an external API, and loaded into Postgres. Processing takes roughly 5–10 minutes per file depending on size.
 
