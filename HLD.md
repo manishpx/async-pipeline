@@ -5,14 +5,14 @@
 
 ## Table of Contents
 1. [Document Purpose & Scope](#1-document-purpose--scope)
-2. [Non-Functional Requirements](#3-non-functional-requirements)
-3. [Architecture Overview](#4-architecture-overview)
-4. [Component Design](#5-component-design)
-5. [Decision Log](#7-decision-log)
-5. [Trade-offs](#8-trade-offs)
-7. [GDPR / PII Posture](#9-gdpr--pii-posture)
-8. [Deployment & CI/CD](#10-deployment--cicd)
-9. [Open Items & Future Work](#11-open-items--future-work)
+2. [Non-Functional Requirements](#2-non-functional-requirements)
+3. [Architecture Overview](#3-architecture-overview)
+4. [Component Design](#4-component-design)
+5. [Decision Log](#5-decision-log)
+6. [Trade-offs](#6-trade-offs)
+7. [GDPR / PII Posture](#7-gdpr--pii-posture)
+8. [Deployment & CI/CD](#8-deployment--cicd)
+9. [Open Items](#9-open-items)
 
 ---
 
@@ -186,7 +186,7 @@ HTTP API chosen over REST API — roughly 70% cheaper, more than sufficient for 
 
 ## 5. Decision Log
 
-Here is logic behind slecting ecah component .
+Here's the reasoning behind each component choice.
 
 **Region — eu-north-1**
 Company is in Stockholm, users are in Stockholm, data should be in Stockholm. It's also around 10–15% cheaper than Frankfurt and runs on 100% renewable energy.
@@ -195,13 +195,13 @@ Company is in Stockholm, users are in Stockholm, data should be in Stockholm. It
 API Gateway has a 10 MB body limit. Lambda has a 6 MB synchronous payload limit. Neither of those work for 5 GB files. Direct browser-to-S3 via presigned multipart URL sidesteps both completely and is actually faster because the browser can upload parts in parallel. This one wasn't really a debate.
 
 **EventBridge between S3 and Step Functions**
-I could have gone S3 → Lambda → Step Functions, or even S3 → Step Functions directly. I went via EventBridge because it decouples the upload event from the processing pipeline. If i want to add an audit trail, an analytics feed, or a virus scanner later, i just add another EventBridge rule — i don't touch the upload path or the pipeline. That kind of extensibility is worth the extra hop.
+We could have gone S3 → Lambda → Step Functions, or even S3 → Step Functions directly. We went via EventBridge because it decouples the upload event from the processing pipeline. If we want to add an audit trail, an analytics feed, or a virus scanner later, we just add another EventBridge rule — we don't touch the upload path or the pipeline. That kind of extensibility is worth the extra hop.
 
 **Step Functions Standard over Express**
 Express Workflows cap at five minutes. Our processing target is 5–10 minutes per file. That's a hard no. Standard Workflows also give us per-stage retry and catch logic, full execution history in the console, and native integrations with ECS, DynamoDB, and SNS. The cost difference is negligible at our scale.
 
 **Fargate over Lambda for the processing tasks**
-Lambda's 15-minute ceiling is cutting it close for large files, and the 10 GB ephemeral storage limit adds risk. More importantly, Lambda's execution model isn't a natural fit for long-running, filesystem-heavy data processing. Fargate gives us a real container, a real filesystem, and no arbitrary time limits. I looked at Batch briefly — it adds a scheduling layer that buys us nothing here. I looked at Glue — it's not designed for rate-limited REST API calls in a sequential pipeline.
+Lambda's 15-minute ceiling is cutting it close for large files, and the 10 GB ephemeral storage limit adds risk. More importantly, Lambda's execution model isn't a natural fit for long-running, filesystem-heavy data processing. Fargate gives us a real container, a real filesystem, and no arbitrary time limits. We looked at Batch briefly — it adds a scheduling layer that buys us nothing here. We looked at Glue — it's not designed for rate-limited REST API calls in a sequential pipeline.
 
 **DynamoDB for job state**
 The job state schema is dead simple — a job ID maps to a status and a few timestamps. That's a key-value lookup, not a relational query. DynamoDB gives us single-digit millisecond reads for the status polling endpoint without burning RDS connections on operational data. Using RDS here would have been the wrong tool.
@@ -219,22 +219,22 @@ Both would work. Secrets Manager is the right semantic for credentials — it's 
 SES would work for email but that's all it does. SNS fans out to email, Slack, PagerDuty, or anything else with a subscription — without touching the pipeline code. Worth the marginal extra setup.
 
 **Cross-region S3 replication to eu-central-1 for DR**
-Cheap insurance at around $0.02/GB. Frankfurt is still EU so data residency isn't compromised. I am not replicating RDS cross-region — there's no defined RTO requirement that would justify Aurora Global DB costs.
+Cheap insurance at around $0.02/GB. Frankfurt is still EU so data residency isn't compromised. We're not replicating RDS cross-region — there's no defined RTO requirement that would justify Aurora Global DB costs.
 
 ---
 
 ## 6. Trade-offs
 
-> I didn't make these calls lightly. Here's the honest version of each one.
+> We didn't make these calls lightly. Here's the honest version of each one.
 
 **Single NAT Gateway**
-I went with one NAT instead of one-per-AZ. The only thing routing through it is the enrich task calling an external API — if that NAT goes down, enrich fails until it recovers, but nothing else is affected. For this workload that's acceptable. If the enrich SLA ever gets formalised or that vendor becomes business-critical, adding a second NAT is a five-minute Terraform change. We'll revisit it then.
+We went with one NAT instead of one-per-AZ. The only thing routing through it is the enrich task calling an external API — if that NAT goes down, enrich fails until it recovers, but nothing else is affected. For this workload that's acceptable. If the enrich SLA ever gets formalised or that vendor becomes business-critical, adding a second NAT is a five-minute Terraform change. We'll revisit it then.
 
 **No CloudFront or Transfer Acceleration**
-Stockholm users uploading to a Stockholm bucket — the latency is already fine. I didn't want to add CloudFront complexity for a problem we don't have yet. If the user base ever goes beyond Sweden, i will add it. Until then it's unnecessary overhead.
+Stockholm users uploading to a Stockholm bucket — the latency is already fine. We didn't want to add CloudFront complexity for a problem we don't have yet. If the user base ever goes beyond Sweden, we add it. Until then it's unnecessary overhead.
 
 **No WAF**
-This one i am less comfortable with. The API is currently exposed without rate limiting or request filtering. It needs WAF before this goes anywhere near production. I flagged it, i haven't forgotten it — it just wasn't in scope for this design exercise.
+This one we're less comfortable with. The API is currently exposed without rate limiting or request filtering. It needs WAF before this goes anywhere near production. We flagged it, we haven't forgotten it — it just wasn't in scope for this design exercise.
 
 **No Auth in the Terraform**
 Same story. The endpoints are unauthenticated in the current design. Cognito or a Lambda authorizer needs to go in before launch. This is the highest risk item on the list and everyone on the team knows it.
@@ -260,19 +260,19 @@ Company is Stockholm-based, so GDPR isn't optional — it shaped several decisio
 
 **Data residency.** Everything stays in eu-north-1. The DR replication goes to eu-central-1 (Frankfurt) which is still EU — no data leaves the region bloc.
 
-**The one thing i can't fully control from infrastructure:** If the enrichment vendor is US-based, we have a Schrems II exposure. The pipeline is already structured correctly — scrub runs before enrich, so PII is removed before anything leaves our environment. But this needs a legal review and a proper DPA with the vendor. Infrastructure can only do so much here.
+**The one thing we can't fully control from infrastructure:** If the enrichment vendor is US-based, we have a Schrems II exposure. The pipeline is already structured correctly — scrub runs before enrich, so PII is removed before anything leaves our environment. But this needs a legal review and a proper DPA with the vendor. Infrastructure can only do so much here.
 
 ---
 
 ## 8. Deployment & CI/CD
 
-All infrastructure is managed via Terraform. Deployments can run through an AWS CodeBuild pipeline or GithubAction piepline triggered on merge to `main` — `terraform init`, `terraform plan`, `terraform apply` in sequence. Terraform state lives in an S3 backend with versioning enabled and a DynamoDB lock table to prevent concurrent applies.
+All infrastructure is managed via Terraform. Deployments can run through an AWS CodeBuild pipeline or GitHub Actions pipeline triggered on merge to `main` — `terraform init`, `terraform plan`, `terraform apply` in sequence.
 
 ```
 GitHub / CodeCommit (main branch)
         │
         ▼ on merge
-   AWS CodeBuild / Github Actioin
+   AWS CodeBuild / GitHub Actions
         │
         ├── terraform init
         ├── terraform plan
@@ -288,7 +288,7 @@ There's no manual approval gate between plan and apply right now. For production
 
 ## 9. Open Items
 
-These are the things i haven't resolved yet. Some are well-understood and just need time. A few are genuinely uncertain.
+These are the things we haven't resolved yet. Some are well-understood and just need time. A few are genuinely uncertain.
 
 **Must be done before production:**
 - **Auth on the API** — No Cognito, no Lambda authorizer in the current Terraform. This is a blocker for prod.
@@ -297,9 +297,9 @@ These are the things i haven't resolved yet. Some are well-understood and just n
 - **Manual approval gate in CodeBuild** — Plan output should be reviewed by a human before applying to production.
 
 **Needs external input:**
-- **Schrems II / enrichment vendor** — We don't know yet if the enrichment vendor processes data in the US. If they do, the scrub task must strip all PII before the enrich task runs — the pipeline order already enforces this, but we need legal and the vendor's DPA reviewed before you go live. 
+- **Schrems II / enrichment vendor** — We don't know yet if the enrichment vendor processes data in the US. If they do, the scrub task must strip all PII before the enrich task runs — the pipeline order already enforces this, but we need legal and the vendor's DPA reviewed before we go live. *(Sarah to follow up with legal — target: before vendor contract sign-off)*
 
 **Worth watching, not urgent:**
-- **Concurrent upload load testing** — I've assumed 20 concurrent uploads. It needs validating against real Fargate task concurrency limits and RDS connection behaviour before YOU see real traffic.
-- **Aurora Serverless v2** — i went with RDS Postgres Multi-AZ because write patterns aren't clear yet. If post-launch metrics show bursty writes, Aurora Serverless v2 is the natural next step. Worth a conversation after the first month in prod.
+- **Concurrent upload load testing** — We've assumed 20 concurrent uploads. It needs validating against real Fargate task concurrency limits and RDS connection behaviour before we see real traffic.
+- **Aurora Serverless v2** — We went with RDS Postgres Multi-AZ because write patterns aren't clear yet. If post-launch metrics show bursty writes, Aurora Serverless v2 is the natural next step. Worth a conversation after the first month in prod.
 - **One NAT per AZ** — Low priority right now. Revisit if enrich SLA gets formalised.
