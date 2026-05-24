@@ -79,7 +79,7 @@ terraform apply -var-file="terraform.tfvars"
 ### 4. Get your API URL
 
 ```bash
-terraform output api_endpoint
+terraform output -raw api_endpoint
 ```
 
 ---
@@ -105,7 +105,7 @@ curl -X POST https://<api-endpoint>/uploads \
 
 ```bash
 # Get the API base URL
-API=$(terraform output -api_endpoint)
+API=$(terraform output -raw api_endpoint)
 
 # Request a presigned upload URL
 RESP=$(curl -s -X POST "$API/uploads" \
@@ -129,6 +129,7 @@ aws stepfunctions list-executions \
 # Poll job status
 curl -s "$API/jobs/$JOB" | jq
 ```
+
 ---
 
 ## Job statuses
@@ -176,6 +177,7 @@ curl -s "$API/jobs/$JOB" | jq
 ## Folder structure
 
 ```
+cd "infra setup code"
 .
 ├── main.tf
 ├── api.tf
